@@ -6,11 +6,21 @@ Browser extension (Chrome / Brave, Manifest V3), která automaticky detekuje cen
 
 ## Co extension dělá
 
-- Najde ceny v textu: `1 234 Kč`, `1234,50 Kč`, `CZK 1 234`, `€ 99,90`, `EUR 1234`, …
-- Přepočítá na satoshi podle aktuálního BTC kurzu z CoinGecka
-- Místo `1 234 Kč` zobrazí `⚡ 52 830 sats`
-- Při hoveru nad hodnotou ukáže původní cenu, použitý kurz a čas aktualizace
-- Kurz se obnovuje automaticky každých 5 minut
+Na libovolné webové stránce najde ceny v CZK a EUR a nahradí je ekvivalentem v satoshi podle aktuálního BTC kurzu z CoinGecka. Podporované formáty (ukázka):
+
+```
+1 234 Kč
+1234,50 Kč
+1 234,- Kč
+CZK 1 234
+€ 99,90
+1 234,50 €
+EUR 1234
+```
+
+- Přepočítá je na satoshi podle aktuálního BTC kurzu (obnovováno každých 5 minut)
+- Ukáže výslednou hodnotu jako `⚡ N sats` (či Ksat/Msat/BTC dle nastavení)
+- Při hoveru nad převedenou hodnotou zobrazí tooltip s původní cenou, použitým kurzem a časem aktualizace
 
 ## Instalace
 
@@ -85,9 +95,9 @@ Více viz [`test/README-test.md`](test/README-test.md). Potřebuješ Node.js 18+
 
 ## Známá omezení
 
-- **Falešná pozitiva:** parser může chytit čísla, která nejsou ceny (např. `1990 CZK` jako kód faktury). Heuristika je laděná pro nejčastější případy, ale není neomylná.
+- **Falešná pozitiva:** parser může občas zachytit čísla, která nejsou ceny (např. fakturační kód následovaný zkratkou CZK). Heuristika je laděná pro nejčastější případy, ale není neomylná.
 - **SPA stránky:** stránky, které dynamicky přepisují DOM (React/Vue apps), jsou podchyceny pomocí `MutationObserveru`, ale velmi rychlé přerenderování může v ojedinělých případech způsobit chvilkový záblesk původní ceny.
-- **Vnořené elementy:** cena rozdělená do více textových uzlů (`<span>1 234</span> <span>Kč</span>`) se nepodchytí — parser pracuje v rámci jednoho textového uzlu.
+- **Vnořené elementy:** cena rozdělená do více textových uzlů (typicky částka a symbol měny v samostatných `span`ech) se nepodchytí — parser pracuje v rámci jednoho textového uzlu.
 - **Přesnost kurzu:** kurz se obnovuje každých 5 minut, v krátkodobých výkyvech BTC může konverze zaostávat. Při nedostupnosti CoinGecka zůstanou ceny beze změny a chyba se zobrazí v popupu.
 
 ## Technické detaily
