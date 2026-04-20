@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="cs">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Fiat2Satoshi</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <header>
+      <h1>⚡ Fiat2Satoshi</h1>
+    </header>
+
+    <section class="row">
+      <label class="switch">
+        <input type="checkbox" id="extension-enabled" />
+        <span class="label-text">Rozšíření zapnuto</span>
+      </label>
+      <label class="switch">
+        <input type="checkbox" id="site-enabled" />
+        <span class="label-text">Zapnuto na této stránce<span id="site-host" class="site-host"></span></span>
+      </label>
+    </section>
+
+    <section class="currencies">
+      <h2>Měny</h2>
+      <label class="switch">
+        <input type="checkbox" id="currency-CZK" />
+        <span class="label-text">CZK (Kč)</span>
+      </label>
+      <label class="switch">
+        <input type="checkbox" id="currency-EUR" />
+        <span class="label-text">EUR (€)</span>
+      </label>
+    </section>
+
+    <section class="display">
+      <h2>Zobrazení</h2>
+      <label class="switch">
+        <input type="radio" name="unit" value="sat" id="unit-sat" />
+        <span class="label-text">Satoshi</span>
+      </label>
+      <div class="sub-options">
+        <label class="switch">
+          <input type="checkbox" id="use-ksat" />
+          <span class="label-text">Ksat (tisíce)</span>
+        </label>
+        <label class="switch">
+          <input type="checkbox" id="use-msat" />
+          <span class="label-text">Msat (miliony)</span>
+        </label>
+      </div>
+      <label class="switch">
+        <input type="radio" name="unit" value="btc" id="unit-btc" />
+        <span class="label-text">BTC</span>
+      </label>
+    </section>
+
+    <section class="rates">
+      <h2>Aktuální kurz BTC</h2>
+      <div id="rate-list" class="rate-list">
+        <div class="rate-row">
+          <span>CZK</span>
+          <span id="rate-CZK">—</span>
+        </div>
+        <div class="rate-row">
+          <span>EUR</span>
+          <span id="rate-EUR">—</span>
+        </div>
+      </div>
+      <div id="rate-meta" class="meta">Načítám…</div>
+      <div id="rate-error" class="error hidden"></div>
+      <button id="refresh-btn" type="button">Obnovit kurz</button>
+    </section>
+
+    <footer>
+      <span>v0.1.0</span>
+      <a href="https://github.com/bitcoinvkapse/fiat2satoshi" target="_blank" rel="noopener"
+        >GitHub</a
+      >
+    </footer>
+
+    <script src="popup.js"></script>
+  </body>
+</html>
