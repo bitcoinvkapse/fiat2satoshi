@@ -27,7 +27,24 @@ Satoshi is bitcoin's base unit (1 BTC = 100,000,000 sats). Seeing prices directl
 ### Technical
 
 - Manifest V3, vanilla JS, no telemetry, open source (MIT).
-- Sends no data anywhere — only talks to CoinGecko for the rate.
-- `<all_urls>` access is used solely for the content script.
+- Permissions: `storage` (persist settings), `alarms` (periodic rate refresh).
+- Network: only `https://api.coingecko.com/*` — to fetch the current BTC rate. Nothing else is ever sent anywhere.
 
-Source code: https://github.com/bitcoinvkapse/fiat2satoshi
+### Why the extension needs access to all pages
+
+Fiat2Satoshi is a tool for **passively reading** the text of any visited page — it has to find CZK and EUR prices there in order to display them as satoshi equivalents. That is why the content script is declared for all URLs.
+
+What the extension **does not** do:
+
+- ❌ Never sends page contents anywhere — not to the author, not to a third party.
+- ❌ No analytics, no user profiling, no browsing history tracking.
+- ❌ Never writes to pages beyond replacing visible prices.
+- ❌ No bypassing of security mechanisms, no `innerHTML` injection — only safe DOM APIs.
+
+What the extension **does**:
+
+- ✅ Within a tab, reads text nodes and replaces fiat prices with the sats equivalent.
+- ✅ Fetches the BTC rate from CoinGecko (a single API endpoint, no user data attached).
+- ✅ Stores user preferences in `chrome.storage.sync`.
+
+The entire source code is open source and auditable: https://github.com/bitcoinvkapse/fiat2satoshi
