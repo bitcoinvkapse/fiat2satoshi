@@ -19,10 +19,20 @@
     return `⚡ ${formatThousands(intPart)},${decPart} BTC`;
   }
 
+  // Krátký BTC formát (auto-switch nad 1 BTC v sat módu): 2 desetinná místa.
+  function formatBtcShort(sats) {
+    const btc = sats / 1e8;
+    const rounded = Math.round(btc * 100) / 100;
+    const [intPart, decPart] = rounded.toFixed(2).split('.');
+    return `⚡ ${formatThousands(intPart)},${decPart} BTC`;
+  }
+
   // Formátování satoshi podle uživatelské volby:
-  //   unit='btc'                        -> "⚡ 0,00012345 BTC"
+  //   unit='btc'                        -> "⚡ 0,00012345 BTC" (vždy 8 des. míst)
   //   unit='sat', useKsat, useMsat      -> Ksat/Msat kde aplikovatelné
   //   jinak jednotné sats s mezerami
+  // Auto-switch: v sat módu při sats >= 1 BTC (100 000 000) se zobrazí
+  //   "⚡ 1,43 BTC" místo nepřehledných 143 Msat.
   function formatSats(sats, opts) {
     if (!isFinite(sats) || sats < 0) return null;
 
@@ -40,6 +50,9 @@
         return `⚡ ${formatTwoDecimals(sats / 1000)} Ksat`;
       }
       return `⚡ ${formatThousands(Math.round(sats))} sats`;
+    }
+    if (sats >= 100_000_000) {
+      return formatBtcShort(sats);
     }
     if (display.useMsat) {
       return `⚡ ${formatTwoDecimals(sats / 1_000_000)} Msat`;

@@ -62,6 +62,29 @@ test('formatSats: unit=btc s velkou hodnotou (mezery v celé části)', () => {
   assert.equal(formatSats(1_234_500_000_000, { unit: 'btc' }), '⚡ 12\u00A0345,00000000 BTC');
 });
 
+test('formatSats: auto-switch nad 1 BTC v sat módu -> "⚡ N,NN BTC"', () => {
+  assert.equal(formatSats(100_000_000), '⚡ 1,00 BTC');
+  assert.equal(formatSats(143_000_000), '⚡ 1,43 BTC');
+  assert.equal(formatSats(250_000_000), '⚡ 2,50 BTC');
+});
+
+test('formatSats: auto-switch platí i bez useMsat', () => {
+  assert.equal(formatSats(143_000_000, { unit: 'sat', useMsat: false }), '⚡ 1,43 BTC');
+});
+
+test('formatSats: pod 1 BTC stále Msat (auto-switch nezasahuje)', () => {
+  assert.equal(formatSats(99_000_000), '⚡ 99,00 Msat');
+  assert.equal(formatSats(99_999_999), '⚡ 100,00 Msat');
+});
+
+test('formatSats: explicitní unit=btc zachovává 8 desetinných i nad 1 BTC', () => {
+  assert.equal(formatSats(143_000_000, { unit: 'btc' }), '⚡ 1,43000000 BTC');
+});
+
+test('formatSats: auto-switch s velkou hodnotou (mezery v celé části)', () => {
+  assert.equal(formatSats(1_234_500_000_000), '⚡ 12\u00A0345,00 BTC');
+});
+
 test('formatSats: zaokrouhluje celé satoshi', () => {
   assert.equal(formatSats(847.4), '⚡ 847 sats');
   assert.equal(formatSats(847.6), '⚡ 848 sats');
