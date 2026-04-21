@@ -3,7 +3,7 @@
   "name": "Fiat2Satoshi",
   "version": "0.1.0",
   "description": "Automaticky nahrazuje ceny ve fiat měnách (CZK, EUR) ekvivalentem v satoshi podle aktuálního BTC kurzu.",
-  "permissions": ["storage", "alarms", "activeTab"],
+  "permissions": ["storage", "alarms"],
   "host_permissions": ["https://api.coingecko.com/*"],
   "background": {
     "service_worker": "background/service-worker.js",
@@ -33,6 +33,8 @@
         "content/currencies/czk.js",
         "content/currencies/eur.js",
         "content/currencies/index.js",
+        "content/adapters/rohlik.js",
+        "content/adapters/allegro.js",
         "content/content.js"
       ],
       "run_at": "document_idle"

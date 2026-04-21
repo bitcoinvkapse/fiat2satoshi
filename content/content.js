@@ -67,6 +67,7 @@
     while (p) {
       if (SKIP_TAGS.has(p.tagName)) return true;
       if (p.classList && p.classList.contains('sats-value')) return true;
+      if (p.dataset && p.dataset.f2sAdapter) return true;
       p = p.parentElement;
     }
     return false;
@@ -129,6 +130,72 @@
     parent.replaceChild(frag, textNode);
   }
 
+  // --- Adaptéry pro split-DOM ceny (Rohlik apod.) ---
+  function isCurrencyEnabled(code) {
+    return F2S.currencies.some((c) => c.code === code && c.enabled);
+  }
+
+  function adapterAlreadyProcessed(container) {
+    if (!container.dataset.f2sAdapter) return false;
+    // Pokud React mezitím přepsal innerHTML, náš span je pryč — marker je stale.
+    if (container.querySelector(':scope > .sats-value')) return true;
+    delete container.dataset.f2sAdapter;
+    delete container.dataset.f2sOrigHtml;
+    return false;
+  }
+
+  function processAdapterSplit(container, adapter) {
+    const result = adapter.extract(container);
+    if (!result) return;
+    if (!isCurrencyEnabled(result.currency)) return;
+    const sats = convertAmount(result.amount, result.currency);
+    if (sats == null) return;
+    const span = buildSpan(
+      { matchText: result.originalText, amount: result.amount, currency: result.currency },
+      sats
+    );
+    result.priceNo.dataset.f2sOrigDisplay = result.priceNo.style.display || '';
+    result.priceNo.style.display = 'none';
+    result.currencyEl.dataset.f2sOrigDisplay = result.currencyEl.style.display || '';
+    result.currencyEl.style.display = 'none';
+    container.dataset.f2sAdapter = adapter.name;
+    container.appendChild(span);
+  }
+
+  function processAdapterText(container, adapter) {
+    const text = container.textContent || '';
+    if (!text) return;
+    const matches = findMatches(text);
+    if (!matches.length) return;
+    const m = matches[0];
+    if (!isCurrencyEnabled(m.currency)) return;
+    const sats = convertAmount(m.amount, m.currency);
+    if (sats == null) return;
+    const span = buildSpan(m, sats);
+    container.dataset.f2sOrigHtml = container.innerHTML;
+    container.dataset.f2sAdapter = adapter.name;
+    container.textContent = '';
+    container.appendChild(span);
+  }
+
+  function processAdapterEntry(entry, adapter) {
+    const { el: container, mode } = entry;
+    if (!container || adapterAlreadyProcessed(container)) return;
+    if (mode === 'split') processAdapterSplit(container, adapter);
+    else if (mode === 'text') processAdapterText(container, adapter);
+  }
+
+  function runAdapters(root) {
+    const adapters = (F2S.adapters || []).filter((a) =>
+      a.hostMatches(window.location.hostname)
+    );
+    if (!adapters.length) return;
+    for (const adapter of adapters) {
+      const entries = adapter.findContainers ? adapter.findContainers(root) : [];
+      for (const entry of entries) processAdapterEntry(entry, adapter);
+    }
+  }
+
   function walkAndProcess(root) {
     if (!root) return;
     if (root.nodeType === Node.TEXT_NODE) {
@@ -138,6 +205,8 @@
     if (root.nodeType !== Node.ELEMENT_NODE) return;
     if (root.classList && root.classList.contains('sats-value')) return;
     if (SKIP_TAGS.has(root.tagName)) return;
+
+    runAdapters(root);
 
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
       acceptNode(node) {
@@ -164,6 +233,10 @@
         if (!node.isConnected) continue;
         walkAndProcess(node);
       }
+      // Adaptéry re-scan celého dokumentu — SPA hydratace často mění obsah
+      // uvnitř již existujících kontejnerů, takže added node je potomek,
+      // ne kontejner sám. Už zpracované kontejnery se přeskočí.
+      if (F2S.adapters && F2S.adapters.length) runAdapters(document.body);
     };
     if (typeof requestIdleCallback === 'function') {
       mutationTimer = requestIdleCallback(run, { timeout: 500 });
@@ -207,6 +280,31 @@
 
   // --- Revert (při vypnutí) ---
   function revertAll() {
+    // Nejdřív adapter kontejnery.
+    const containers = document.querySelectorAll('[data-f2s-adapter]');
+    for (const container of containers) {
+      if (container.dataset.f2sOrigHtml != null) {
+        // text mode — obnov původní innerHTML (vč. <sub>, textů, …).
+        container.innerHTML = container.dataset.f2sOrigHtml;
+        delete container.dataset.f2sOrigHtml;
+      } else {
+        // split mode — odkryj priceNo/currency, smaž vložený span.
+        const priceNo = container.querySelector('[data-test$="-priceNo"]');
+        const currencyEl = container.querySelector('[data-test$="-currency"]');
+        if (priceNo) {
+          priceNo.style.display = priceNo.dataset.f2sOrigDisplay || '';
+          delete priceNo.dataset.f2sOrigDisplay;
+        }
+        if (currencyEl) {
+          currencyEl.style.display = currencyEl.dataset.f2sOrigDisplay || '';
+          delete currencyEl.dataset.f2sOrigDisplay;
+        }
+        const span = container.querySelector(':scope > .sats-value');
+        if (span) span.remove();
+      }
+      delete container.dataset.f2sAdapter;
+    }
+    // Pak generické text-node spans.
     const spans = document.querySelectorAll('span.sats-value');
     for (const span of spans) {
       const original = span.getAttribute('data-original') || '';
@@ -276,8 +374,14 @@
       return;
     }
 
-    walkAndProcess(document.body);
     startObserver();
+    walkAndProcess(document.body);
+    // Pojistka proti SPA hydrataci, která může běžet paralelně s init.
+    setTimeout(() => {
+      if (isActive() && rateSnapshot && rateSnapshot.rates) {
+        walkAndProcess(document.body);
+      }
+    }, 800);
   }
 
   async function reapply() {
