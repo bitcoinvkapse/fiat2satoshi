@@ -6,7 +6,7 @@ Browser extension (Chrome / Brave, Manifest V3), která automaticky detekuje cen
 
 ## Co extension dělá
 
-Na libovolné webové stránce najde ceny v CZK a EUR a nahradí je ekvivalentem v satoshi podle aktuálního BTC kurzu z CoinGecka. Podporované formáty (ukázka):
+Na libovolné webové stránce najde ceny v CZK a EUR a nahradí je ekvivalentem v satoshi podle aktuálního BTC kurzu (primárně CoinGecko, fallback Coinbase). Podporované formáty (ukázka):
 
 ```
 1 234 Kč
@@ -107,13 +107,13 @@ Více viz [`test/README-test.md`](test/README-test.md). Potřebuješ Node.js 18+
 - **Falešná pozitiva:** parser může občas zachytit čísla, která nejsou ceny (např. fakturační kód následovaný zkratkou CZK). Heuristika je laděná pro nejčastější případy, ale není neomylná.
 - **SPA stránky:** stránky, které dynamicky přepisují DOM (React/Vue apps), jsou podchyceny pomocí `MutationObserveru` + deferred re-scanu, ale velmi rychlé přerenderování může v ojedinělých případech způsobit chvilkový záblesk původní ceny.
 - **Vnořené elementy:** cena rozdělená do více textových uzlů (typicky částka a symbol měny v samostatných `span`ech) se obecně nepodchytí — generický parser pracuje v rámci jednoho textového uzlu. Pro vybrané weby to řeší [site adaptéry](#site-adaptéry).
-- **Přesnost kurzu:** kurz se obnovuje každých 5 minut, v krátkodobých výkyvech BTC může konverze zaostávat. Při nedostupnosti CoinGecka zůstanou ceny beze změny a chyba se zobrazí v popupu.
+- **Přesnost kurzu:** kurz se obnovuje každých 5 minut, v krátkodobých výkyvech BTC může konverze zaostávat. Při nedostupnosti CoinGecka se použije Coinbase jako fallback; pokud selžou oba zdroje a není uložený předchozí kurz, ceny zůstanou beze změny a chyba se zobrazí v popupu.
 
 ## Technické detaily
 
 - **Manifest V3**, vanilla JS, žádný build step, žádné závislosti.
 - **Permissions:** `storage`, `alarms`, `activeTab`.
-- **Host permissions:** `https://api.coingecko.com/*`.
+- **Host permissions:** `https://api.coingecko.com/*` (primární kurz), `https://api.coinbase.com/*` (fallback kurz).
 - **Žádné `innerHTML` zápisy** — pouze DOM API (bez XSS rizika).
 - Zpracované hodnoty mají CSS třídu `.sats-value` a drží original v `data-original` atributu.
 

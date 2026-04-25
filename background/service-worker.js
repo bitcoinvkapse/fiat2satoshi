@@ -1,33 +1,94 @@
 // Fiat2Satoshi – background service worker
-// Stahuje BTC kurz z CoinGecka, cachuje v chrome.storage.session (5 min TTL)
-// a persistuje poslední známý kurz do chrome.storage.local jako fallback.
+// Stahuje BTC kurz z primárního zdroje (CoinGecko), s fallbackem na Coinbase.
+// Cachuje v chrome.storage.session (5 min TTL) a persistuje poslední známý
+// kurz do chrome.storage.local jako offline fallback.
 
-const API_URL =
-  'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=czk,eur,usd';
+const SOURCES = [
+  {
+    name: 'coingecko',
+    url: 'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=czk,eur,usd',
+    parse: (data) => {
+      const btc = data && data.bitcoin;
+      if (!btc || typeof btc.czk !== 'number' || typeof btc.eur !== 'number' || typeof btc.usd !== 'number') {
+        throw new Error('CoinGecko: neplatná odpověď');
+      }
+      return { CZK: btc.czk, EUR: btc.eur, USD: btc.usd };
+    }
+  },
+  {
+    name: 'coinbase',
+    url: 'https://api.coinbase.com/v2/exchange-rates?currency=BTC',
+    parse: (data) => {
+      const r = data && data.data && data.data.rates;
+      if (!r) throw new Error('Coinbase: neplatná odpověď');
+      const czk = parseFloat(r.CZK);
+      const eur = parseFloat(r.EUR);
+      const usd = parseFloat(r.USD);
+      if (!isFinite(czk) || !isFinite(eur) || !isFinite(usd)) {
+        throw new Error('Coinbase: chybí kurz CZK/EUR/USD');
+      }
+      return { CZK: czk, EUR: eur, USD: usd };
+    }
+  }
+];
+
 const CACHE_KEY = 'btcRate';
 const CACHE_TTL_MS = 5 * 60 * 1000;
 const ALARM_NAME = 'fiat2satoshi-refresh-rate';
+const RETRY_DELAYS_MS = [1000, 3000];
 
-async function fetchFromApi() {
-  const res = await fetch(API_URL, { cache: 'no-store' });
-  if (!res.ok) {
-    throw new Error(`CoinGecko HTTP ${res.status}`);
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function fetchFromSource(source) {
+  // Při HTTP 429 / dočasné síťové chybě zkusíme krátký backoff předtím,
+  // než přepneme na další zdroj. Reviewer Web Storu opakovaně narazil
+  // na rate limit CoinGecka — retry tam pomáhá tu chvíli překlenout.
+  let lastErr = null;
+  for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
+    try {
+      const res = await fetch(source.url, { cache: 'no-store' });
+      if (res.status === 429 || res.status === 503) {
+        lastErr = new Error(`${source.name}: HTTP ${res.status}`);
+      } else if (!res.ok) {
+        throw new Error(`${source.name}: HTTP ${res.status}`);
+      } else {
+        const data = await res.json();
+        const rates = source.parse(data);
+        return { rates, source: source.name };
+      }
+    } catch (err) {
+      lastErr = err instanceof Error ? err : new Error(String(err));
+      // Síťová chyba (TypeError z fetch) — zkusíme znovu, pak fallback.
+    }
+    if (attempt < RETRY_DELAYS_MS.length) {
+      await delay(RETRY_DELAYS_MS[attempt]);
+    }
   }
-  const data = await res.json();
-  const btc = data && data.bitcoin;
-  if (!btc || typeof btc.czk !== 'number') {
-    throw new Error('Neplatná odpověď z CoinGecka');
+  throw lastErr || new Error(`${source.name}: neznámá chyba`);
+}
+
+async function fetchFromAnySource() {
+  const errors = [];
+  for (const source of SOURCES) {
+    try {
+      const result = await fetchFromSource(source);
+      return {
+        rates: result.rates,
+        fetchedAt: Date.now(),
+        source: result.source
+      };
+    } catch (err) {
+      errors.push(err.message || String(err));
+    }
   }
-  return {
-    rates: { CZK: btc.czk, EUR: btc.eur, USD: btc.usd },
-    fetchedAt: Date.now(),
-    source: 'coingecko'
-  };
+  throw new Error(`Všechny zdroje selhaly: ${errors.join('; ')}`);
 }
 
 async function refreshRate() {
   try {
-    const payload = await fetchFromApi();
+    const payload = await fetchFromAnySource();
     await chrome.storage.session.set({ [CACHE_KEY]: payload });
     await chrome.storage.local.set({ [CACHE_KEY]: payload, lastError: null });
     return { ok: true, payload };

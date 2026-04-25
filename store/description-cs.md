@@ -16,7 +16,7 @@ Ceny na webu v Kč a € automaticky přepočítá na satoshi podle aktuálního
   - 1 000 – 999 999 sats → `⚡ 12 345 sats`
   - přes 1 000 000 → `⚡ 1,23 Msat`
 - 💬 Hover tooltip s původní cenou, použitým kurzem a časem poslední aktualizace
-- 🔄 Automatická aktualizace kurzu každých 5 minut z CoinGecka
+- 🔄 Automatická aktualizace kurzu každých 5 minut (zdroj: CoinGecko, fallback Coinbase)
 - 🎛 Popup s on/off přepínačem a volbou měn (CZK / EUR)
 - 📄 Funguje i na dynamických stránkách (SPA, e-shopy)
 
@@ -28,7 +28,7 @@ Satoshi je základní jednotka bitcoinu (1 BTC = 100 000 000 sats). Když ceny v
 
 - Manifest V3, vanilla JS, bez telemetrie, open source (MIT).
 - Povolení: `storage` (uložení nastavení), `alarms` (periodická obnova kurzu).
-- Síťová komunikace: pouze `https://api.coingecko.com/*` — pro získání aktuálního BTC kurzu. Nic jiného se nikam neposílá.
+- Síťová komunikace: pouze `https://api.coingecko.com/*` (primární zdroj kurzu) a `https://api.coinbase.com/*` (fallback, použije se jen když primární zdroj selže). Nic jiného se nikam neposílá.
 
 ### Proč extension potřebuje přístup ke všem stránkám
 
@@ -44,7 +44,7 @@ Co extension **nedělá**:
 Co extension **dělá**:
 
 - ✅ V rámci karty přečte textové uzly a nahradí fiat ceny satoshi ekvivalentem.
-- ✅ Získá BTC kurz z CoinGecka (jedna API adresa, žádná data o uživateli).
+- ✅ Získá BTC kurz z CoinGecka (případně z Coinbase při výpadku CoinGecka) — jen volání cenového endpointu, žádná data o uživateli.
 - ✅ Uloží uživatelské nastavení do `chrome.storage.sync`.
 
 Celý zdrojový kód je open source a kontrolovatelný: https://github.com/bitcoinvkapse/fiat2satoshi
